@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flashcards de Conceptos</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: #333;
+            margin: 0;
+            overflow-y: scroll; /* Permite scroll vertical */
+        }
+
+        h1 {
+            color: #0056b3;
+            margin-bottom: 30px;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            max-width: 800px;
+            justify-content: center;
+            position: relative; /* Para el posicionamiento de las sugerencias */
+        }
+
+        .controls input[type="text"] {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            flex-grow: 1;
+            font-size: 1rem;
+            position: relative;
+            z-index: 2; /* Asegura que el input esté sobre las sugerencias */
+        }
+
+        .controls button {
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.3s ease;
+            z-index: 1;
+        }
+
+        .controls button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Sugerencias de búsqueda */
+        #searchResults {
+            position: absolute;
+            top: 100%; /* Debajo del input */
+            left: 0;
+            right: 0;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 10; /* Por encima de las flashcards */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            display: none; /* Oculto por defecto */
+        }
+
+        .search-result-item {
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+        }
+
+        .search-result-item:hover {
+            background-color: #f0f0f0;
+        }
+
+        .flashcard-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr); /* 4 columnas */
+            gap: 20px;
+            width: 100%;
+            max-width: 1200px; /* Ajusta según sea necesario para 4 columnas */
+            justify-content: center;
+            padding: 20px 0;
+        }
+
+        .flashcard-container {
+            perspective: 1000px;
+            height: 200px; /* Altura fija para todas las tarjetas */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 2px solid transparent; /* Para el foco */
+            border-radius: 10px;
+            box-sizing: border-box;
+            cursor: pointer; /* Indica que es clicable */
+        }
+
+        .flashcard-container.focused {
+            border-color: #007bff; /* Color de borde para la tarjeta enfocada */
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.5);
+        }
+
+        .flashcard {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+
+        .flashcard.flipped {
+            transform: rotateY(180deg);
+        }
+
+        .flashcard-front, .flashcard-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 10px;
+            padding: 15px;
+            box-sizing: border-box;
+            text-align: center;
+            word-wrap: break-word;
+            overflow: hidden; /* Para asegurar que el texto no se desborde sin scrollbar */
+        }
+
+        .flashcard-front {
+            background-color: #ffffff;
+            color: #333;
+            font-size: 1.3em;
+            font-weight: bold;
+            border: 2px solid #007bff;
+        }
+
+        .flashcard-back {
+            background-color: #e9f7ff;
+            color: #555;
+            transform: rotateY(180deg);
+            font-size: 1em;
+            border: 2px solid #28a745;
+            overflow-y: auto; /* Para contenido largo en el back */
+        }
+
+        /* Estilos para el overlay de tarjeta grande */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease;
+        }
+
+        .overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .large-card-container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            max-width: 70%;
+            max-height: 80%;
+            overflow-y: auto;
+            position: relative;
+            transform: scale(0.8);
+            transition: transform 0.3s ease;
+        }
+
+        .overlay.active .large-card-container {
+            transform: scale(1);
+        }
+
+        .large-card-front, .large-card-back {
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            line-height: 1.6;
+        }
+
+        .large-card-front {
+            font-weight: bold;
+            color: #0056b3;
+            font-size: 1.5em;
+        }
+
+        .large-card-back {
+            color: #333;
+        }
+
+        .large-card-back strong {
+            color: #007bff;
+        }
+
+        @media (max-width: 1024px) {
+            .flashcard-grid {
+                grid-template-columns: repeat(3, 1fr); /* 3 columnas en pantallas medianas */
+            }
+        }
+
+        @media (max-width: 768px) {
+            .flashcard-grid {
+                grid-template-columns: repeat(2, 1fr); /* 2 columnas en pantallas pequeñas */
+            }
+
+            .large-card-container {
+                max-width: 90%;
+                padding: 20px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .flashcard-grid {
+                grid-template-columns: 1fr; /* 1 columna en pantallas muy pequeñas */
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Flashcards de Conceptos</h1>
+
+    <div class="controls">
+        <input type="text" id="searchInput" placeholder="Buscar concepto...">
+        <div id="searchResults"></div>
+        <button onclick="shuffleCards()">Mezclar Tarjetas</button>
+        </div>
+
+    <div class="flashcard-grid" id="flashcardGrid">
+        </div>
+
+    <div class="overlay" id="overlay">
+        <div class="large-card-container" id="largeCardContent">
+            </div>
+    </div>
+
+    <script>
+        const flashcardsData = [
+            { front: "Conducta intergrupal", back: "Definición: Toda interacción entre miembros de grupos diferentes. Características: Basada en la pertenencia grupal. Incluye cooperación y conflicto. Sus determinantes son sociales más que individuales." },
+            { front: "Independencia de las diferencias individuales", back: "Definición: La conducta intergrupal no depende de rasgos de personalidad particulares. Características: Comportamientos similares entre individuos distintos por el simple hecho de pertenecer al grupo." },
+            { front: "Independencia de los estados motivacionales", back: "Definición: La conducta intergrupal se produce al margen de motivaciones individuales concretas. Características: No es necesaria una motivación individual previa para que se generen sesgos grupales." },
+            { front: "Identidad social", back: "Definición: Parte del autoconcepto derivado de la pertenencia a un grupo social. Características: Contiene valor y significado emocional. Relacionada con la autoestima. Evidencia: Tajfel y Turner: los individuos buscan maximizar la identidad social positiva." },
+            { front: "Categorización", back: "Definición: Proceso de clasificar a las personas en grupos. Características: Reduce la complejidad social. Tiende a acentuar diferencias intergrupales y similitudes intragrupales." },
+            { front: "Acentuación de diferencias", back: "Definición: Tendencia a exagerar diferencias entre grupos y similitudes dentro del grupo. Características: Proceso perceptivo básico. Influye en estereotipos." },
+            { front: "Estereotipos", back: "Definición: Creencias compartidas sobre características de los miembros de un grupo. Características: Simplifican la percepción social. Son resistentes al cambio." },
+            { front: "Polarización", back: "Definición: Tendencia a adoptar posiciones extremas en situaciones grupales. Características: Más extrema que las posiciones individuales previas. Evidencia: Moscovici y Zavalloni: discusiones grupales intensifican opiniones." },
+            { front: "Etnocentrismo", back: "Definición: Consideración del propio grupo como centro de referencia. Características: Superioridad de la endogrupo. Inferiorización del exogrupo." },
+            { front: "Sesgos intergrupales", back: "Definición: Preferencia sistemática hacia el propio grupo frente a otros. Características: Produce favoritismo endogrupal. Puede llevar a discriminación." },
+            { front: "Prejuicio", back: "Definición: Actitud negativa hacia miembros de un grupo. Características: Componente afectivo. Basado en la pertenencia grupal." },
+            { front: "Discriminación", back: "Definición: Comportamiento diferencial negativo hacia miembros de un grupo. Características: Manifiesta el prejuicio en la conducta." },
+            { front: "Favoritismo endogrupal", back: "Definición: Tendencia a beneficiar al grupo propio. Características: Aún en ausencia de conflicto real. Evidencia: Paradigma del grupo mínimo de Tajfel: asignación arbitraria genera preferencias." },
+            { front: "Paradigma del grupo mínimo", back: "Definición: Método experimental que asigna personas a grupos sin historia ni interacción. Características: Basta categorización mínima para generar favoritismo. Evidencia: Tajfel (1971): sujetos asignaban más recursos a su propio grupo." },
+            { front: "Teoría de la identidad social (TIS)", back: "Definición: Explica cómo la pertenencia grupal define la identidad y motiva la diferenciación favorable. Características: Identidad social positiva contribuye a la autoestima. Genera comparación intergrupal." },
+            { front: "Teoría realista del conflicto (TRC)", back: "Definición: Postula que el conflicto intergrupal surge de la competencia por recursos limitados. Características: Cooperación reduce hostilidad. Evidencia: Sherif: interdependencia negativa provoca conflicto; interdependencia positiva, cooperación." },
+            { front: "Interdependencia positiva (cooperación)", back: "Definición: Situación en que los objetivos de los grupos son compartidos. Características: Reduce prejuicio. Fomenta colaboración." },
+            { front: "Interdependencia negativa (competición)", back: "Definición: Situación en que los objetivos de los grupos son incompatibles. Características: Origina hostilidad." },
+            { front: "Teoría de juegos", back: "Definición: Modelo matemático para analizar interacciones estratégicas. Características: Considera ganancias y pérdidas. Evidencia: Dilema del prisionero como ejemplo clásico." },
+            { front: "Dilema del prisionero", back: "Definición: Situación en que la decisión racional individual perjudica el beneficio colectivo. Características: Modelo de conflicto entre cooperación e interés propio." },
+            { front: "Motivaciones subyacentes: intereses", back: "Definición: Razones basadas en beneficios materiales o tangibles." },
+            { front: "Motivaciones subyacentes: valores", back: "Definición: Razones basadas en principios o creencias compartidas." },
+            { front: "Motivaciones subyacentes: necesidades", back: "Definición: Razones basadas en carencias personales o grupales." },
+            { front: "Estratificación social", back: "Definición: Organización jerárquica de grupos en la sociedad. Características: Define estatus y poder." },
+            { front: "Poder", back: "Definición: Capacidad de un grupo de influir sobre otros. Características: Puede basarse en recursos o legitimidad." },
+            { front: "Estatus", back: "Definición: Prestigio o reconocimiento social del grupo. Características: Independiente del poder material." },
+            { front: "Peso numérico", back: "Definición: Tamaño relativo del grupo en la población. Características: Influye en la percepción social." },
+            { front: "Altercentrismo", back: "Definición: Tendencia a centrarse en las perspectivas del otro grupo. Características: Puede reducir prejuicio y conflicto." },
+            { front: "Patología grupal", back: "Definición: Atmosfera en la que un grupo normal puede generar comportamientos destructivos al combinar condiciones estructurales e ideológicas extremas. Características: Surge de la interacción de factores de podersumisión, rutinas burocráticas y sistemas ideológicos que legitiman la violencia. Evidencia: Atentado del 11M y masacre de Leganés, donde individuos “normales” cometieron actos extremos bajo la lógica de grupo." },
+            { front: "Estructura de poder (condición estructural)", back: "Definición: Modo en que el poder y la autoridad se organizan dentro del grupo. Características: Alta centralización de las decisiones. Liderazgo autoritario. Evidencia: Los soldados de My Lai siguieron órdenes estrictas de un mando único." },
+            { front: "Estructura de tarea (condición estructural)", back: "Definición: División y asignación minuciosa de funciones en el grupo. Características: Cada miembro se responsabiliza solo de su parte, reduciendo toma de decisiones individual." },
+            { front: "Estructura de norma (condición estructural)", back: "Definición: Conjunto de reglas y rutinas que estandarizan procedimientos y conductas. Características: Rutinización mecánica de acciones, anulación de escrúpulos morales." },
+            { front: "Percepción de amenaza (condición ideológica)", back: "Definición: Sensación de vulnerabilidad del endogrupo frente al exogrupo. Características: Alimenta miedo y cohesión interna para “defenderse”. Evidencia: Testimonios de guerrilleros que actuaron por temor a ser considerados traidores." },
+            { front: "Culpabilización del exogrupo (condición ideológica)", back: "Definición: Atribuir al otro grupo la responsabilidad de agravios pasados o presentes. Características: Refuerza la justificación de la violencia como “venganza”." },
+            { front: "Creencias devaluadoras (condición ideológica)", back: "Definición: Sistema de estereotipos que despersonaliza y deshumaniza al exogrupo. Subtipos: Despersonalización: Ignorar la identidad individual. Atribución de rasgos negativos: Suponer intenciones maliciosas. Deshumanización: Verlos como “no-humanos”. Evidencia: Fotografías de presos desnudos y forzados a actos degradantes en Abu Ghraib." },
+            { front: "Apelación a altos fines (condición ideológica)", back: "Definición: Invocar valores o metas trascendentes (religión, patria) para legitimar la violencia. Características: Eleva moralmente acciones atroces como “necesarias”." },
+            { front: "Obediencia ciega", back: "Definición: Cumplimiento incondicional de órdenes sin cuestionar su moralidad. Características: Ausencia de dilema; fusión con la autoridad. Evidencia: Teniente Calley y la masacre de My Lai, donde los soldados actuaron “solo cumpliendo órdenes”." },
+            { front: "Desplazamiento de la responsabilidad", back: "Definición: Trasladar la culpa personal al remitente de la orden. Características: “Yo solo obedezco, no tomo decisiones”." },
+            { front: "Desindividuación", back: "Definición: Pérdida de la identidad personal al diluirse en el rol grupal. Características: Anonimato psicológico, disminución de autocontrol. Evidencia: Experimento de la prisión de Stanford, donde “vigilantes” se tornaron sádicos en días." },
+            { front: "Estigmatización de las víctimas", back: "Definición: Marcar al exogrupo como “enemigo” merecedor de castigo. Características: Facilita la agresión sin remordimientos." },
+            { front: "Reducción de la empatía", back: "Definición: Desconexión emocional frente al sufrimiento ajeno. Características: Minimiza la consideración de daños infligidos." },
+            { front: "Exclusión moral", back: "Definición: No aplicar principios éticos al exogrupo, viéndolo fuera del “círculo moral”. Características: Habilita tortura y asesinatos sistemáticos." },
+            { front: "Autoridad", back: "Definición: Poder legítimo aceptado para ordenar y ser obedecido. Características: Legitimidad, derecho de mando y obligación de obedecer. Tres perspectivas: Weber: Dominación y obediencia como base de la autoridad. Kelman & Hamilton: Influencia social legítima en contextos políticos. Milgram: Control social situacional que induce obediencia. Procesos de influencia social (subtipos de autoridad) Sumisión: Obedecer para obtener recompensa o evitar castigo. Identificación: Adoptar el modelo de rol del agente de influencia. Internalización: Alinear los valores propios con los del agente de influencia. Evidencia: Testimonios de guerrilleros que comparten ideales por identificación." },
+            { front: "Crímenes de obediencia", back: "Definición: Actos extremos de violencia cometidos bajo órdenes legítimas. Características: Combinan autoridad, rutina y deshumanización. Casos: Masacre de My Lai (1968). El Mozote, El Salvador (1981). Torturas de Abu Ghraib (2003-04)." },
+            { front: "Racionalidad del mal", back: "Definición: Planificación meticulosa de la violencia como estrategia para maximizar impacto. Características: Frialdad técnica, análisis de alternativas, selección de métodos más destructivos." },
+            { front: "Metaverso", back: "Definición: Un espacio virtual colectivo y persistente, creado por la convergencia de la realidad física aumentada y entornos digitales, donde las acciones de los usuarios en un mundo impactan el otro y viceversa. Características principales: Inmersividad y continuidad temporal. Interactividad en tiempo real. Convergencia de tecnologías (VR, AR, IA, blockchain). Personalización mediante avatares y “gemelos digitales”. Elementos: Hardware: cascos, gafas híbridas, sensores de movimiento. Software: motores gráficos 3D, algoritmos de sincronización sensorial. Infraestructura: redes de alta velocidad, plataformas descentralizadas. Subtipos: Plataforma (arquitectura donde ocurren interacciones). Mundo (espacios virtuales con narrativas propias). Evidencia / Caso: Neal Stephenson (1992) lo acuñó en Snow Crash. Park & Kim (2022) describen apps de Metaverso en industria y educación." },
+            { front: "Codificación Predictiva y Neurociencia del Metaverso", back: "Definición: Aplicación del modelo de codificación predictiva del cerebro (anticipa y corrige percepciones) a entornos virtuales que simulan sensaciones del mundo real. Características principales: Predicción de resultados sensoriales. Corrección de errores mediante retroalimentación en tiempo real. Sincronía entre modelo digital y representación interna del usuario. Elementos: Representación digital de cuerpo y entorno. Sensores (cámaras, acelerómetros). Algoritmos de renderizado y física. Subtipos: VR tradicional vs realidad aumentada híbrida. Evidencia / Caso: Clark (2013), Hohwy (2013) en codificación predictiva. Riva & Wiederhold (2022) vinculan VR y predicción cerebral." },
+            { front: "“Humane Metaverse”: Marco Teórico", back: "Definición: Visión de un Metaverso que potencie valores humanos (empatía, comunidad) y mitigue debilidades de redes sociales tradicionales. Características principales: Enfoque en bienestar y ética. Sinergia entre neurociencia y tecnología. Diseño centrado en usuario y valores (DEI). Elementos: Predicción cognitiva como base de presencia. Co-presencia social y narrativas compartidas. Regulación ética (privacidad, justicia algorítmica). Evidencia / Caso: Riva et al. exploran neuromodelos de comunidades físicas vs digitales. De Florio & Frigerio distinguen “Metaverso como plataforma” y “como mundo”." },
+            { front: "Realidad Extendida en Educación (Proyecto Metaversity)", back: "Definición: Integración de XR (realidad virtual, aumentada y mixta) para aprendizaje activo y experiencial. Características principales: Aprendizaje interactivo y colaborativo. Espacios virtuales para razonamiento y resolución de problemas. Retos de costos, accesibilidad e inclusión. Elementos: Frameworks pedagógicos (design thinking). Herramientas de creación de contenidos XR. Formación docente y soporte técnico. Evidencia / Caso: Gaggioli et al.: Metaversity usa design thinking para involucrar a todos los stakeholders. Di Natale et al.: Modelo EECM para aceptación de IVR en curso italiano." },
+            { front: "Factores en Eventos Académicos Metaverso", back: "Definición: Variables que influyen en la experiencia de académicos en plataformas tipo Gather.Town (Metaverso “ligero”). Características principales: Presencia social y autoeficacia tecnológica como predictores de interacciones. Satisfacción afectada por motivación interna más que por co-presencia. Evidencia / Caso: Fangying Lo et al.: Alta presencia social → más interacciones académicas; la autoeficacia impulsa satisfacción." },
+            { front: "Autoexpansión en VR", back: "Definición: Extensión del yo mediante experiencias inmersivas. Riesgo: Disonancia identidad real–virtual reduce autoestima si falta coherencia. Evidencia: Jang et al. (VRChat, N=486)." },
+            { front: "Agentes Virtuales y Conducta de Riesgo", back: "Definición: Influencia de avatares en decisiones de adolescentes. Resultados: Mayor toma de riesgos bajo “nudge” de agentes AI. Evidencia: Di Dio et al. (BART, N=113)." },
+            { front: "Perspectivas “Indie” del Metaverso", back: "Definición: Visión crítica y paródica desde desarrolladores de videojuegos independientes. Características principales: Escepticismo sobre la comercialización. Modelos alternativos enfocados en comunidad y no-comercialización. Caso: “The Endless Forest”: juego sin objetivos ni lenguaje que prioriza comunicación no verbal." },
+            { front: "Metaverso en Salud y Bienestar Mental (“MEDverse”)", back: "Definición: Uso de entornos inmersivos para intervenciones en trastornos psicológicos y promoción de salud. Características principales: Avatares corporales para terapias de imagen corporal y autismo. Potencial de integración de IA, IoT y blockchain. Necesidad de marco socialneurocientífico. Evidencia / Caso: Cerasa et al.: VR validada en dolor/ansiedad; MEDverse busca enriquecer con feedback multisensorial." },
+            { front: "Modelos de Negocio y Organizaciones en el Metaverso", back: "Definición: Implicaciones gerenciales al incorporar espacios virtuales en procesos empresariales. Características principales: Transición a Web 3.0 y blockchain. Nuevos modelos de HR (formación, reclutamiento) y experiencia cliente. Desafíos regulatorios y éticos en IA. Evidencia / Caso: Frigerio & Rajola: Web 3.0 como reacción a Web 2.0; potencial en banca y trabajo remoto inmersivo." },
+            { front: "Comunidades Físicas vs Digitales: El “WeMode”", back: "Definición: Modo cognitivo colectivo caracterizado por sincronía conductual, empatía y narrativas compartidas. Características de comunidades físicas: Anclaje a lugares y límites que facilitan copresencia. Procesos neurobiológicos: células de lugar, oxitocina, sincronía intercerebral. Comunidades digitales: Basadas en intereses (“comunidades de práctica”), menos diversidad y “sabiduría de la multitud” polarizada. Falta copresencia reduce empatía extendida y motivación socia." }
+        ];
+
+        const flashcardGrid = document.getElementById('flashcardGrid');
+        const searchInput = document.getElementById('searchInput');
+        const searchResults = document.getElementById('searchResults');
+        const overlay = document.getElementById('overlay');
+        const largeCardContent = document.getElementById('largeCardContent');
+
+        let currentFlashcards = [...flashcardsData]; // Copia de los datos originales
+        let focusedCardIndex = -1; // Para la navegación con flechas
+
+        // Helper para asegurar que ninguna tarjeta esté visualmente enfocada
+        function clearAllFocus() {
+            const cards = flashcardGrid.querySelectorAll('.flashcard-container');
+            cards.forEach(card => card.classList.remove('focused'));
+        }
+
+        function createFlashcardElement(cardData, index) {
+            const cardContainer = document.createElement('div');
+            cardContainer.classList.add('flashcard-container');
+            cardContainer.dataset.index = index; // Usamos el índice original para referenciar los datos
+
+            const flashcard = document.createElement('div');
+            flashcard.classList.add('flashcard');
+            flashcard.dataset.cardIndex = index;
+            
+            const flashcardFront = document.createElement('div');
+            flashcardFront.classList.add('flashcard-front');
+            flashcardFront.textContent = cardData.front;
+
+            const flashcardBack = document.createElement('div');
+            flashcardBack.classList.add('flashcard-back');
+            flashcardBack.innerHTML = cardData.back;
+
+            flashcard.appendChild(flashcardFront);
+            flashcard.appendChild(flashcardBack);
+            cardContainer.appendChild(flashcard);
+
+            cardContainer.addEventListener('click', (event) => {
+                showLargeCard(cardData);
+            });
+
+            return cardContainer;
+        }
+
+        function renderFlashcards(cardsToRender) {
+            clearAllFocus();
+            flashcardGrid.innerHTML = '';
+            cardsToRender.forEach((card, index) => {
+                flashcardGrid.appendChild(createFlashcardElement(card, index));
+            });
+        }
+
+        function shuffleCards() {
+            currentFlashcards = [...flashcardsData];
+            for (let i = currentFlashcards.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [currentFlashcards[i], currentFlashcards[j]] = [currentFlashcards[j], currentFlashcards[i]];
+            }
+            renderFlashcards(currentFlashcards);
+            focusedCardIndex = -1;
+            updateFocusedCard(focusedCardIndex);
+        }
+
+        function displaySearchResults(results) {
+            searchResults.innerHTML = '';
+            if (results.length > 0) {
+                searchResults.style.display = 'block';
+                results.forEach((card) => {
+                    const resultItem = document.createElement('div');
+                    resultItem.classList.add('search-result-item');
+                    resultItem.textContent = card.front;
+                    resultItem.dataset.cardIndex = flashcardsData.indexOf(card); 
+                    resultItem.onclick = () => {
+                        searchInput.value = card.front;
+                        searchResults.style.display = 'none';
+                        showLargeCard(card);
+                        focusedCardIndex = flashcardsData.indexOf(card);
+                        updateFocusedCard(focusedCardIndex);
+                    };
+                    searchResults.appendChild(resultItem);
+                });
+            } else {
+                searchResults.style.display = 'none';
+            }
+        }
+
+        function handleSearchInput() {
+            const searchTerm = searchInput.value.toLowerCase();
+
+            if (searchTerm.length > 0) {
+                const matchingConcepts = flashcardsData.filter(card =>
+                    card.front.toLowerCase().includes(searchTerm)
+                );
+                displaySearchResults(matchingConcepts);
+            } else {
+                searchResults.style.display = 'none';
+                currentFlashcards = [...flashcardsData];
+                renderFlashcards(currentFlashcards);
+                focusedCardIndex = -1;
+                updateFocusedCard(focusedCardIndex);
+            }
+        }
+
+        function performFullSearch() {
+            const searchTerm = searchInput.value.toLowerCase();
+            searchResults.style.display = 'none';
+
+            if (searchTerm === "") {
+                currentFlashcards = [...flashcardsData];
+                renderFlashcards(currentFlashcards);
+                focusedCardIndex = -1;
+                updateFocusedCard(focusedCardIndex);
+                return;
+            }
+
+            const exactMatch = flashcardsData.find(card => card.front.toLowerCase() === searchTerm);
+            if (exactMatch) {
+                showLargeCard(exactMatch);
+                currentFlashcards = [...flashcardsData];
+                renderFlashcards(currentFlashcards);
+                focusedCardIndex = flashcardsData.indexOf(exactMatch);
+                updateFocusedCard(focusedCardIndex);
+                return;
+            }
+
+            const filteredCards = flashcardsData.filter(card =>
+                card.front.toLowerCase().includes(searchTerm) ||
+                card.back.toLowerCase().includes(searchTerm)
+            );
+
+            filteredCards.sort((a, b) => {
+                const aMatchesFront = a.front.toLowerCase().includes(searchTerm);
+                const bMatchesFront = b.front.toLowerCase().includes(searchTerm);
+
+                if (aMatchesFront && !bMatchesFront) return -1;
+                if (!aMatchesFront && bMatchesFront) return 1;
+                return 0;
+            });
+
+            currentFlashcards = filteredCards;
+            renderFlashcards(currentFlashcards);
+            focusedCardIndex = currentFlashcards.length > 0 ? 0 : -1;
+            updateFocusedCard(focusedCardIndex);
+        }
+
+        function showLargeCard(cardData) {
+            largeCardContent.innerHTML = `
+                <div class="large-card-front">${cardData.front}</div>
+                <div class="large-card-back">${cardData.back}</div>
+            `;
+            overlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function hideLargeCard() {
+            overlay.classList.remove('active');
+            document.body.style.overflow = '';
+            searchInput.focus();
+        }
+
+        // Navegación con teclado
+        function updateFocusedCard(newIndex) {
+            clearAllFocus();
+
+            const cards = flashcardGrid.querySelectorAll('.flashcard-container');
+            if (cards.length === 0) {
+                focusedCardIndex = -1;
+                return;
+            }
+
+            newIndex = Math.max(0, Math.min(newIndex, cards.length - 1));
+            focusedCardIndex = newIndex;
+
+            if (focusedCardIndex !== -1 && cards[focusedCardIndex]) {
+                cards[focusedCardIndex].classList.add('focused');
+                cards[focusedCardIndex].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            // Si el overlay de la tarjeta grande está activo, solo 'Escape' debe funcionar (para cerrarlo).
+            if (overlay.classList.contains('active')) {
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    hideLargeCard();
+                    focusedCardIndex = -1;
+                    updateFocusedCard(focusedCardIndex);
+                }
+                return;
+            }
+            
+            const numCols = 4;
+            const numCards = currentFlashcards.length;
+
+            if (numCards === 0) return;
+
+            let newIndex = focusedCardIndex;
+            const isSearchInputFocused = document.activeElement === searchInput;
+
+            switch (e.key) {
+                case 'ArrowUp':
+                    e.preventDefault();
+                    newIndex -= numCols;
+                    break;
+                case 'ArrowDown':
+                    e.preventDefault();
+                    newIndex += numCols;
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    newIndex--;
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    newIndex++;
+                    break;
+                case 'Enter':
+                    e.preventDefault();
+                    if (isSearchInputFocused) {
+                        performFullSearch();
+                    } else if (focusedCardIndex !== -1) {
+                        showLargeCard(currentFlashcards[focusedCardIndex]);
+                    }
+                    return;
+                case 'Escape':
+                    e.preventDefault();
+                    searchInput.value = '';
+                    searchResults.style.display = 'none';
+                    currentFlashcards = [...flashcardsData];
+                    renderFlashcards(currentFlashcards);
+                    focusedCardIndex = -1;
+                    updateFocusedCard(focusedCardIndex);
+                    return;
+            }
+
+            if (newIndex !== focusedCardIndex || focusedCardIndex === -1) {
+                updateFocusedCard(newIndex);
+            }
+        });
+
+        // Event Listeners
+        searchInput.addEventListener('input', handleSearchInput);
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                hideLargeCard();
+            }
+        });
+
+        // Cargar las tarjetas al iniciar
+        document.addEventListener('DOMContentLoaded', () => {
+            renderFlashcards(flashcardsData);
+            focusedCardIndex = 0;
+            updateFocusedCard(focusedCardIndex);
+        });
+    </script>
+
+    <script>
+    (function(){if(!window.chatbase||window.chatbase("getState")!=="initialized"){window.chatbase=(...arguments)=>{if(!window.chatbase.q){window.chatbase.q=[]}window.chatbase.q.push(arguments)};window.chatbase=new Proxy(window.chatbase,{get(target,prop){if(prop==="q"){return target.q}return(...args)=>target(prop,...args)}})}const onLoad=function(){const script=document.createElement("script");script.src="https://www.chatbase.co/embed.min.js";script.id="b8G58Dmvkjy4TIClKQmn2";script.domain="www.chatbase.co";document.body.appendChild(script)};if(document.readyState==="complete"){onLoad()}else{window.addEventListener("load",onLoad)}})();
+    </script>
+</body>
+</html>
